@@ -15,6 +15,10 @@ lib.Mesh_add.argtypes = [c_void_p, c_void_p]
 # Set indices/vertices
 lib.Mesh_set_indices.argtypes = [c_void_p, NDPOINTER(2, np.int64), c_size_t]
 lib.Mesh_set_vertices.argtypes = [c_void_p, NDPOINTER(2, np.double), c_size_t]
+# Normals orientation
+lib.Mesh_is_outward_oriented.argtypes = [c_void_p]
+lib.Mesh_is_outward_oriented.restype = c_bool
+lib.Mesh_reverse_face_orientations.argtypes = [c_void_p]
 # Number of indices/faces
 lib.Mesh_number_of_faces.argtypes = [c_void_p]
 lib.Mesh_number_of_faces.restype = c_size_t
@@ -75,6 +79,12 @@ class Mesh:
 
     def number_of_faces(self) -> int:
         return lib.Mesh_number_of_faces(self._mesh)
+
+    def is_outward_oriented(self) -> bool:
+        return lib.Mesh_is_outward_oriented(self._mesh)
+
+    def reverse_face_orientations(self) -> bool:
+        return lib.Mesh_reverse_face_orientations(self._mesh)
 
     def get_vertices(self) -> np.ndarray:
         arr = np.zeros(shape=(self.number_of_vertices(), 3), dtype=float)

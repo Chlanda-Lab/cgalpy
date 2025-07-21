@@ -69,6 +69,14 @@ extern "C" {
     return mesh->number_of_faces();
   }
 
+  bool Mesh_is_outward_oriented(Mesh * mesh) {
+    return mesh->is_outward_oriented();
+  }
+
+  void Mesh_reverse_face_orientations(Mesh * mesh) {
+    mesh->reverse_face_orientations();
+  }
+
   void Mesh_get_vertices(Mesh * mesh, double * vertices) {
     size_t offset = 0;
     for (vertex_descriptor v : mesh->vertices()) {
