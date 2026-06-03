@@ -13,7 +13,7 @@ lib.Mesh_new.restype = c_void_p
 # Add
 lib.Mesh_add.argtypes = [c_void_p, c_void_p]
 # Set indices/vertices
-lib.Mesh_set_indices.argtypes = [c_void_p, NDPOINTER(2, np.int64), c_size_t]
+lib.Mesh_set_indices.argtypes = [c_void_p, NDPOINTER(2, np.intp), c_size_t]
 lib.Mesh_set_vertices.argtypes = [c_void_p, NDPOINTER(2, np.double), c_size_t]
 # Number of indices/faces
 lib.Mesh_number_of_faces.argtypes = [c_void_p]

@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <unordered_map>
 #include <boost/variant/variant.hpp>
 #include <CGAL/Simple_cartesian.h>
 #include <CGAL/Surface_mesh.h>
@@ -48,7 +49,7 @@ extern "C" {
     }
   }
 
-  void Mesh_set_indices(Mesh * mesh, unsigned long * indices, size_t n_indices) {
+  void Mesh_set_indices(Mesh * mesh, size_t * indices, size_t n_indices) {
     for (size_t i = 0; i < n_indices; i++) {
          mesh->add_face(
           vertex_descriptor(indices[i*3 + 0]),
@@ -80,6 +81,13 @@ extern "C" {
   }
   
   void Mesh_get_indices(Mesh * mesh, size_t * indices) {
+    std::unordered_map<size_t, size_t> index_map;
+    index_map.reserve(mesh->number_of_vertices());
+    size_t vertex_index = 0;
+    for (vertex_descriptor v : mesh->vertices()) {
+      index_map[(size_t)v] = vertex_index++;
+    }
+
     size_t offset = 0;
     for (face_descriptor face : mesh->faces()) {
       halfedge_descriptor halfedge1 = mesh->halfedge(face);
@@ -88,9 +96,9 @@ extern "C" {
       vertex_descriptor vertex1 = mesh->target(halfedge1);
       vertex_descriptor vertex2 = mesh->target(halfedge2);
       vertex_descriptor vertex3 = mesh->target(halfedge3);
-      indices[offset++] = (size_t) vertex1;
-      indices[offset++] = (size_t) vertex2;
-      indices[offset++] = (size_t) vertex3;
+      indices[offset++] = index_map[(size_t)vertex1];
+      indices[offset++] = index_map[(size_t)vertex2];
+      indices[offset++] = index_map[(size_t)vertex3];
     }
   }
   
