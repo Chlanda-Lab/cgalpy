@@ -1,6 +1,7 @@
 #include <CGAL/Polygon_mesh_processing/angle_and_area_smoothing.h>
 #include <algorithm>
 #include <list>
+#include <set>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
@@ -36,6 +37,19 @@ typedef CGAL::AABB_traits<K, Primitive> AABB_triangle_traits;
 typedef CGAL::AABB_tree<AABB_triangle_traits> Tree;
 
 namespace PMP = CGAL::Polygon_mesh_processing;
+
+// Skip functor for AABB_tree::first_intersection, following
+// https://doc.cgal.org/5.1/AABB_tree/AABB_tree_2AABB_ray_shooting_example_8cpp-example.html
+// Ignores any face contained in the given set. This lets us discard
+// intersections with the face the ray originates from (and its neighbors),
+// which otherwise report a distance of ~0.
+struct Skip {
+  const std::set<face_descriptor> & skip_faces;
+  Skip(const std::set<face_descriptor> & skip_faces) : skip_faces(skip_faces) {}
+  bool operator()(const face_descriptor & t) const {
+    return skip_faces.find(t) != skip_faces.end();
+  }
+};
 
 extern "C" {
 
@@ -237,19 +251,38 @@ extern "C" {
   }
   
   void Tree_first_intersections(Tree * tree, double * ray_start_points, double * normals, size_t n_rays, double * intersection_points, size_t * faces) {
-    for (size_t ray_idx; ray_idx<n_rays; ray_idx++) {
-      size_t offset = ray_idx * 3;
+    // Intersections that lie (nearly) on the ray origin come from the face the
+    // ray starts on and the faces adjacent to it. Their squared distance to the
+    // origin is essentially zero, so we skip any hit closer than this threshold
+    // and re-query the tree ignoring that face until a genuine hit is found.
+    const double sq_epsilon = 1e-12;
+    for (size_t ray_idx = 0; ray_idx < n_rays; ray_idx++) {
+      const size_t offset = ray_idx * 3;
+      const Point origin(ray_start_points[offset], ray_start_points[offset+1], ray_start_points[offset+2]);
       Ray ray(
-        Point(ray_start_points[offset], ray_start_points[offset+1], ray_start_points[offset+2]),
+        origin,
         Point(normals[offset], normals[offset+1], normals[offset+2])
       );
-      auto intersection = tree->first_intersection(ray);
-      if (intersection) {
-        if (const Point* point = boost::get<Point>(&(intersection->first))) {
-          for (size_t i=0; i<3; i++)
-            intersection_points[offset+i] = (*point)[i];
-          faces[ray_idx] = (size_t) intersection.value().second;
+      std::set<face_descriptor> skip_faces;
+      while (true) {
+        auto intersection = tree->first_intersection(ray, Skip(skip_faces));
+        if (!intersection) break;
+        const face_descriptor fd = intersection->second;
+        const Point* point = boost::get<Point>(&(intersection->first));
+        if (!point) {
+          // Ray coplanar with the face (segment intersection): skip it.
+          skip_faces.insert(fd);
+          continue;
         }
+        if (CGAL::squared_distance(origin, *point) < sq_epsilon) {
+          // Zero-distance hit on a neighboring/originating face: skip and retry.
+          skip_faces.insert(fd);
+          continue;
+        }
+        for (size_t i=0; i<3; i++)
+          intersection_points[offset+i] = (*point)[i];
+        faces[ray_idx] = (size_t) fd;
+        break;
       }
     }
   }
